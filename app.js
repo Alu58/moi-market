@@ -43,9 +43,7 @@ const renderProducts = (query = '') => {
     const image = safeImageUrl(product.image);
     const imageStyle = image ? ` style="background-image:url('${escapeHtml(image)}')"` : '';
     const phone = String(product.sellerPhone || '').replace(/[^\d+]/g, '');
-    const contactLink = phone
-      ? `<a href="tel:${escapeHtml(phone)}">Contact seller</a>`
-      : '';
+    const contactLink = phone ? `<a href="tel:${escapeHtml(phone)}">Contact seller</a>` : '';
 
     return `
       <article class="product-card">
@@ -67,7 +65,7 @@ const sendProductToWhatsApp = (event) => {
 
   const data = new FormData(form);
   const message = [
-    'Hello Moi Market admin, I would like to advertise a product.',
+    'Hello Moi Market.com admin, I would like to advertise a product.',
     '',
     `Owner/business: ${data.get('businessName')}`,
     `Product: ${data.get('productName')}`,
