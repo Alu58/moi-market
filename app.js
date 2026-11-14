@@ -1,195 +1,126 @@
 const STORAGE_KEY = 'moi-market-products';
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    productName: 'Luxury Blender Pro',
-    businessName: 'Pure Kitchen Co.',
-    category: 'Home & Living',
-    plan: 'Featured',
-    status: 'Approved',
-    description: 'Powerful kitchen appliance for smoothies, soups, and daily meal prep.',
-    imageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=80',
-    phone: '0712345678'
-  },
-  {
-    id: 2,
-    productName: 'Classic Leather Bag',
-    businessName: 'Milea Fashion',
-    category: 'Fashion',
-    plan: 'Basic',
-    status: 'Approved',
-    description: 'Elegant daily carry bag made from premium material.',
-    imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80',
-    phone: '0723456789'
-  },
-  {
-    id: 3,
-    productName: 'Smart Fitness Watch',
-    businessName: 'Nova Health',
-    category: 'Health',
-    plan: 'Premium',
-    status: 'Approved',
-    description: 'Track heart rate, workouts, and sleep with a sleek premium design.',
-    imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=900&q=80',
-    phone: '0734567890'
-  }
-];
+const PLAN_PRICE = { Basic: 2500, Featured: 5500, Premium: 9500 };
 
-const PLANS = {
-  Basic: 2500,
-  Featured: 5500,
-  Premium: 9500
-};
-
-const getStoredProducts = () => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PRODUCTS));
-    return DEFAULT_PRODUCTS;
+const getProducts = () => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    const defaults = [
+      { id: 1, productName: 'Luxury Blender Pro', businessName: 'Pure Kitchen Co.', category: 'Home & Living', plan: 'Featured', status: 'Approved', description: 'A high-powered blender for smoothies, soups, and daily meal prep.', imageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=80', phone: '0712345678' },
+      { id: 2, productName: 'Classic Leather Bag', businessName: 'Milea Fashion', category: 'Fashion', plan: 'Basic', status: 'Approved', description: 'Elegant leather carry bag designed for daily use.', imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80', phone: '0723456789' },
+      { id: 3, productName: 'Smart Fitness Watch', businessName: 'Nova Health', category: 'Health', plan: 'Premium', status: 'Approved', description: 'Track heart rate, workouts, and sleep with a premium design.', imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=900&q=80', phone: '0734567890' }
+    ];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+    return defaults;
   }
 
   try {
-    const parsed = JSON.parse(saved);
-    return parsed.length ? parsed : DEFAULT_PRODUCTS;
-  } catch (error) {
-    return DEFAULT_PRODUCTS;
+    return JSON.parse(stored);
+  } catch {
+    return [];
   }
 };
 
-const updateSummary = () => {
-  const form = document.getElementById('sellerForm');
-  const plan = form?.elements?.plan?.value || 'Basic';
-  const price = PLANS[plan] || 2500;
-
-  const summaryPlan = document.getElementById('summaryPlan');
-  const summaryPrice = document.getElementById('summaryPrice');
-
-  if (summaryPlan && summaryPrice) {
-    summaryPlan.textContent = plan;
-    summaryPrice.textContent = `Ksh ${price.toLocaleString()}`;
-  }
-};
-
-const renderProducts = (query = '') => {
+const renderListings = (query = '') => {
   const grid = document.getElementById('listingGrid');
   if (!grid) return;
 
-  const products = getStoredProducts().filter((product) => {
-    const haystack = `${product.productName} ${product.businessName} ${product.category}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
-  });
+  const items = getProducts().filter((item) => item.status === 'Approved' && `${item.productName} ${item.businessName} ${item.category}`.toLowerCase().includes(query.toLowerCase()));
 
-  if (!products.length) {
-    grid.innerHTML = '<div class="panel"><p>No products match your search yet.</p></div>';
+  grid.innerHTML = items.length
+    ? items.map((item) => `
+      <article class="product-card">
+        <div class="product-image" style="background-image:url('${item.imageUrl || 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80'}')"></div>
+        <div class="product-body">
+          <span class="product-tag">${item.category}</span>
+          <span class="product-status">${item.status}</span>
+          <h3>${item.productName}</h3>
+          <p>${item.description}</p>
+          <div class="product-meta">
+            <span class="product-price">Ksh ${PLAN_PRICE[item.plan] || 2500}</span>
+            <span class="product-phone">${item.phone}</span>
+          </div>
+        </div>
+      </article>
+    `).join('')
+    : '<div class="card"><p>No approved products found.</p></div>';
+};
+
+const updateSummary = () => {
+  const plan = document.querySelector('#sellerForm select[name="plan"]')?.value || 'Basic';
+  const amount = PLAN_PRICE[plan] || 2500;
+  const planEl = document.getElementById('summaryPlan');
+  const priceEl = document.getElementById('summaryPrice');
+  if (planEl) planEl.textContent = plan;
+  if (priceEl) priceEl.textContent = `Ksh ${amount.toLocaleString()}`;
+};
+
+const renderAdminTable = () => {
+  const tableWrap = document.getElementById('adminTableWrap');
+  const adminMessage = document.getElementById('adminMessage');
+  const tbody = document.getElementById('adminTableBody');
+  if (!tableWrap || !adminMessage || !tbody) return;
+
+  const loggedIn = sessionStorage.getItem('moi-market-admin') === 'logged-in';
+  if (!loggedIn) {
+    adminMessage.textContent = 'Log in to review submissions.';
+    tableWrap.classList.add('hidden');
     return;
   }
 
-  grid.innerHTML = products
-    .filter((product) => product.status === 'Approved')
-    .map(
-      (product) => `
-        <article class="product-card">
-          <div class="product-image" style="background-image: url('${product.imageUrl || 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80'}')"></div>
-          <div class="product-body">
-            <span class="product-tag">${product.category}</span>
-            <span class="product-status">${product.status}</span>
-            <h3>${product.productName}</h3>
-            <p>${product.description}</p>
-            <div class="product-meta">
-              <span class="product-price">Ksh ${Number(PLANS[product.plan] || 2500).toLocaleString()}</span>
-              <span class="product-contact">${product.phone}</span>
-            </div>
+  const products = getProducts().filter((item) => item.status === 'Pending');
+  if (!products.length) {
+    tbody.innerHTML = '<tr><td colspan="5">No pending submissions.</td></tr>';
+  } else {
+    tbody.innerHTML = products.map((item) => `
+      <tr>
+        <td>${item.businessName}</td>
+        <td>${item.productName}</td>
+        <td>${item.plan}</td>
+        <td><span class="status-pill status-pending">Pending</span></td>
+        <td>
+          <div class="action-buttons">
+            <button class="action-button approve" data-id="${item.id}" data-action="approve">Approve</button>
+            <button class="action-button reject" data-id="${item.id}" data-action="reject">Reject</button>
           </div>
-        </article>
-      `
-    )
-    .join('');
-};
+        </td>
+      </tr>
+    `).join('');
+  }
 
-const saveProduct = (product) => {
-  const allProducts = getStoredProducts();
-  allProducts.push(product);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(allProducts));
-  renderProducts();
-  renderAdminTable();
+  tableWrap.classList.remove('hidden');
+  adminMessage.textContent = 'Review list is ready.';
 };
 
 const handleSellerSubmit = (event) => {
   event.preventDefault();
-
   const form = event.currentTarget;
-  const formData = new FormData(form);
+  const data = new FormData(form);
   const product = {
     id: Date.now(),
-    productName: formData.get('productName'),
-    businessName: formData.get('businessName'),
-    category: formData.get('category'),
-    plan: formData.get('plan'),
+    productName: data.get('productName'),
+    businessName: data.get('businessName'),
+    category: data.get('category'),
+    plan: data.get('plan'),
     status: 'Pending',
-    description: formData.get('description'),
-    imageUrl: formData.get('imageUrl') || 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80',
-    phone: formData.get('phone'),
-    paymentMethod: formData.get('paymentMethod'),
-    paymentDetails: formData.get('paymentDetails')
+    description: data.get('description'),
+    imageUrl: data.get('imageUrl') || 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80',
+    phone: data.get('phone'),
+    paymentMethod: data.get('paymentMethod'),
+    paymentDetails: data.get('paymentDetails')
   };
 
-  saveProduct(product);
+  const products = getProducts();
+  products.push(product);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   form.reset();
   updateSummary();
-  alert('Your ad has been submitted and is awaiting admin review.');
-};
-
-const renderAdminTable = () => {
-  const tbody = document.getElementById('adminTableBody');
-  const adminTableWrap = document.getElementById('adminTableWrap');
-  const message = document.getElementById('adminMessage');
-
-  if (!tbody || !adminTableWrap || !message) return;
-
-  const isLoggedIn = sessionStorage.getItem('moi-market-admin') === 'logged-in';
-  if (!isLoggedIn) {
-    adminTableWrap.classList.add('hidden');
-    message.textContent = 'Log in to review submissions.';
-    return;
-  }
-
-  const products = getStoredProducts();
-  const pendingProducts = products.filter((product) => product.status === 'Pending');
-
-  if (!pendingProducts.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="5">No pending submissions. All current listings are active.</td>
-      </tr>
-    `;
-  } else {
-    tbody.innerHTML = pendingProducts
-      .map(
-        (product) => `
-          <tr>
-            <td>${product.businessName}</td>
-            <td>${product.productName}</td>
-            <td>${product.plan}</td>
-            <td><span class="status-pill status-pending">Pending</span></td>
-            <td>
-              <div class="action-buttons">
-                <button class="action-button approve" data-id="${product.id}" data-action="approve">Approve</button>
-                <button class="action-button reject" data-id="${product.id}" data-action="reject">Reject</button>
-              </div>
-            </td>
-          </tr>
-        `
-      )
-      .join('');
-  }
-
-  adminTableWrap.classList.remove('hidden');
-  message.textContent = 'Review list is ready.';
+  renderListings();
+  renderAdminTable();
+  alert('Your product ad has been submitted and is pending admin review.');
 };
 
 const handleAdminLogin = (event) => {
   event.preventDefault();
-
   const username = document.getElementById('adminUsername').value.trim();
   const password = document.getElementById('adminPassword').value.trim();
 
@@ -198,28 +129,22 @@ const handleAdminLogin = (event) => {
     renderAdminTable();
     alert('Admin login successful.');
   } else {
-    alert('Invalid admin credentials. Use admin / moi123');
+    alert('Invalid credentials. Use admin / moi123');
   }
 };
 
 const handleAdminAction = (event) => {
-  const target = event.target;
-  if (!target.classList.contains('action-button')) return;
-
-  const { id, action } = target.dataset;
-  const products = getStoredProducts();
-  const updatedProducts = products.map((product) => {
-    if (String(product.id) === String(id)) {
-      return {
-        ...product,
-        status: action === 'approve' ? 'Approved' : 'Rejected'
-      };
+  const button = event.target.closest('.action-button');
+  if (!button) return;
+  const { id, action } = button.dataset;
+  const products = getProducts().map((item) => {
+    if (String(item.id) === String(id)) {
+      return { ...item, status: action === 'approve' ? 'Approved' : 'Rejected' };
     }
-    return product;
+    return item;
   });
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-  renderProducts();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  renderListings();
   renderAdminTable();
 };
 
@@ -227,27 +152,23 @@ const bindEvents = () => {
   const sellerForm = document.getElementById('sellerForm');
   if (sellerForm) {
     sellerForm.addEventListener('submit', handleSellerSubmit);
-    sellerForm.elements.plan.addEventListener('change', updateSummary);
+    sellerForm.querySelector('select[name="plan"]').addEventListener('change', updateSummary);
   }
 
   const adminForm = document.getElementById('adminLoginForm');
-  if (adminForm) {
-    adminForm.addEventListener('submit', handleAdminLogin);
-  }
+  if (adminForm) adminForm.addEventListener('submit', handleAdminLogin);
 
   document.addEventListener('click', handleAdminAction);
 
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
-    searchInput.addEventListener('input', (event) => renderProducts(event.target.value));
+    searchInput.addEventListener('input', (event) => renderListings(event.target.value));
   }
 };
 
-const init = () => {
-  renderProducts();
+window.addEventListener('DOMContentLoaded', () => {
+  renderListings();
   updateSummary();
   renderAdminTable();
   bindEvents();
-};
-
-window.addEventListener('DOMContentLoaded', init);
+});
