@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Advertise your products on Moi Market. Send your product details to our admin on WhatsApp for review and posting.">
+  <meta name="theme-color" content="#153b2d">
+  <title>Moi Market — Promote your products</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#home" aria-label="Moi Market home">
+        <span class="brand-icon">M</span>
+        <span><strong>MOI MARKET</strong><small>Local products. More visibility.</small></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#products">Products</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#plans">Plans</a>
+        <a class="nav-cta" href="#advertise">Advertise</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">A marketplace for local businesses</span>
+          <h1>Have a product to promote?</h1>
+          <p>Send your product details to the Moi Market admin on WhatsApp. After review and confirmation, the admin will publish your product on the website.</p>
+          <a class="button button-primary" href="#advertise">Send product details <span aria-hidden="true">↗</span></a>
+          <div class="hero-contact">WhatsApp the admin: <a href="https://wa.me/254115496673">0115496673</a></div>
+        </div>
+        <div class="hero-art" aria-label="Product advertising on Moi Market">
+          <div class="art-sun"></div>
+          <div class="art-card"><span class="art-label">MOI MARKET</span><div class="art-product">✦</div><strong>Your product, featured</strong><small>Reviewed by our admin</small></div>
+          <span class="floating-tag tag-one">Local sellers</span>
+          <span class="floating-tag tag-two">More visibility</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section products-section" id="products">
+      <div class="container">
+        <div class="section-heading">
+          <div><span class="eyebrow">Browse Moi Market</span><h2>Products from local sellers</h2></div>
+          <p>Only products reviewed and posted by the admin appear here.</p>
+        </div>
+        <div id="listingGrid" class="product-grid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="section process-section" id="how-it-works">
+      <div class="container">
+        <div class="section-heading centered"><span class="eyebrow">Simple process</span><h2>From WhatsApp to the website</h2></div>
+        <div class="steps-grid">
+          <article class="step-card"><span class="step-number">01</span><h3>Send your details</h3><p>Tell the admin your product name, price, description, seller contact, and preferred ad plan on WhatsApp.</p></article>
+          <article class="step-card"><span class="step-number">02</span><h3>Admin reviews</h3><p>The admin checks your information, product photos, advertising plan, and payment arrangement.</p></article>
+          <article class="step-card"><span class="step-number">03</span><h3>Get published</h3><p>Once approved and payment is confirmed, the admin adds your product to the website.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section plans-section" id="plans">
+      <div class="container">
+        <div class="section-heading centered"><span class="eyebrow">Advertising options</span><h2>Choose how to promote</h2><p>Confirm current pricing and payment with the admin on WhatsApp.</p></div>
+        <div class="plans-grid">
+          <article class="plan-card"><span class="plan-label">Basic</span><h3>Standard listing</h3><p>Show your product in its category on Moi Market.</p></article>
+          <article class="plan-card plan-featured"><span class="plan-label">Featured</span><h3>Extra visibility</h3><p>Request a featured product placement on the website.</p></article>
+          <article class="plan-card"><span class="plan-label">Premium</span><h3>Top promotion</h3><p>Ask about priority placement and extended promotion.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section advertise-section" id="advertise">
+      <div class="container advertise-grid">
+        <div class="advertise-copy">
+          <span class="eyebrow">For product owners</span>
+          <h2>Send your product to the admin</h2>
+          <p>Fill in the details below. The button opens WhatsApp with a ready-to-send message to <strong>0115496673</strong>. In WhatsApp, attach clear product photos and press send.</p>
+          <div class="contact-card"><span class="whatsapp-icon">✆</span><div><small>WhatsApp Moi Market admin</small><strong>0115496673</strong></div><a href="https://wa.me/254115496673" aria-label="Open WhatsApp chat with Moi Market admin">Chat</a></div>
+          <p class="fine-print">Submitting a message does not automatically publish an ad. The admin reviews and posts approved products.</p>
+        </div>
+        <form id="whatsappForm" class="product-form">
+          <label>Owner / business name<input name="businessName" required autocomplete="organization" placeholder="Your name or business"></label>
+          <div class="form-row">
+            <label>Product name<input name="productName" required placeholder="What are you selling?"></label>
+            <label>Category<select name="category" required><option value="">Choose a category</option><option>Electronics</option><option>Fashion</option><option>Home &amp; Living</option><option>Beauty</option><option>Food &amp; Beverage</option><option>Health</option><option>Other</option></select></label>
+          </div>
+          <div class="form-row">
+            <label>Selling price<input name="price" required placeholder="e.g. Ksh 2,500"></label>
+            <label>Your phone number<input name="sellerPhone" required type="tel" autocomplete="tel" placeholder="Number buyers can call"></label>
+          </div>
+          <label>Product description<textarea name="description" required rows="4" placeholder="Describe the product and its key features"></textarea></label>
+          <label>Preferred advertising plan<select name="plan" required><option value="">Choose a plan</option><option>Basic</option><option>Featured</option><option>Premium</option></select></label>
+          <button type="submit" class="button button-primary">Continue to WhatsApp <span aria-hidden="true">↗</span></button>
+          <small class="form-note">Please attach product photos in the WhatsApp chat. Confirm fees and payment directly with the admin; do not send passwords, PINs, or card details.</small>
+          <p id="formMessage" class="form-message" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner"><a class="brand footer-brand" href="#home"><span class="brand-icon">M</span><span><strong>MOI MARKET</strong><small>Local products. More visibility.</small></span></a><p>Product advertising and promotion</p><p>WhatsApp: <a href="https://wa.me/254115496673">0115496673</a></p></div>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
