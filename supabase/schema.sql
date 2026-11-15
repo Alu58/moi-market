@@ -8,6 +8,7 @@ create table if not exists public.products (
   name text not null check (char_length(btrim(name)) between 1 and 120),
   category text not null check (char_length(btrim(category)) between 1 and 80),
   price numeric not null check (price >= 0),
+  quantity integer check (quantity is null or quantity >= 0),
   description text not null check (char_length(btrim(description)) between 1 and 2000),
   image_url text check (image_url is null or char_length(image_url) <= 2048),
   seller_phone text check (seller_phone is null or char_length(seller_phone) <= 40),
@@ -16,6 +17,24 @@ create table if not exists public.products (
 
 alter table public.products
   add column if not exists seller_phone text check (seller_phone is null or char_length(seller_phone) <= 40);
+
+alter table public.products
+  add column if not exists quantity integer;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'products_quantity_nonnegative'
+      and conrelid = 'public.products'::regclass
+  ) then
+    alter table public.products
+      add constraint products_quantity_nonnegative
+      check (quantity is null or quantity >= 0);
+  end if;
+end
+$$;
 
 alter table public.admin_users enable row level security;
 alter table public.products enable row level security;
