@@ -42,6 +42,26 @@ const safeImageUrl = (value) => {
   }
 };
 
+const parseProductPrice = (value) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(/^(?:KES|KSH)\s*/i, '')
+    .replace(/,/g, '');
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : null;
+};
+
+const formatProductPrice = (value) => {
+  const amount = parseProductPrice(value);
+  return amount === null
+    ? String(value ?? '')
+    : `KES ${amount.toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
+};
+
 const setCatalogueMessage = (message, isError = false) => {
   const status = document.getElementById('catalogueMessage');
   if (!status) return;
@@ -83,7 +103,7 @@ const renderProducts = (query = productSearchQuery) => {
           <span class="product-category">${escapeHtml(product.category || 'Product')}</span>
           <h3>${escapeHtml(product.name)}</h3>
           <p>${escapeHtml(product.description || '')}</p>
-          <div class="product-footer"><strong>${escapeHtml(product.price || '')}</strong>${contactLink}</div>
+          <div class="product-footer"><strong>${escapeHtml(formatProductPrice(product.price))}</strong>${contactLink}</div>
         </div>
       </article>`;
   }).join('');
@@ -190,7 +210,7 @@ const renderAdminProducts = () => {
   }
   list.innerHTML = products.map((product) => `
     <article class="admin-product-row">
-      <div><strong>${escapeHtml(product.name)}</strong><span>${escapeHtml(product.category)} · ${escapeHtml(product.price)}</span></div>
+      <div><strong>${escapeHtml(product.name)}</strong><span>${escapeHtml(product.category)} · ${escapeHtml(formatProductPrice(product.price))}</span></div>
       <div class="admin-row-actions">
         <button type="button" class="text-button" data-action="edit" data-id="${escapeHtml(product.id)}">Edit</button>
         <button type="button" class="text-button danger-button" data-action="delete" data-id="${escapeHtml(product.id)}">Delete</button>
@@ -272,6 +292,11 @@ const saveAdminProduct = async (event) => {
   const form = event.currentTarget;
   const productId = form.elements.productId.value;
   const previousProduct = products.find((item) => item.id === productId);
+  const price = parseProductPrice(form.elements.price.value);
+  if (price === null) {
+    showAdminMessage('Enter a valid price of 0 or more, with up to 2 decimal places.', true);
+    return;
+  }
   const imageFile = form.elements.image_file.files[0];
   const removeImage = form.elements.remove_image.checked;
   const saveButton = document.getElementById('saveProductButton');
@@ -301,7 +326,7 @@ const saveAdminProduct = async (event) => {
   const product = {
     name: form.elements.name.value.trim(),
     category: form.elements.category.value.trim(),
-    price: `KES ${Number(form.elements.price.value).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`,
+    price,
     seller_phone: form.elements.seller_phone.value.trim() || null,
     image_url: uploadedImageUrl || (removeImage ? null : previousProduct?.image_url || null),
     description: form.elements.description.value.trim()
@@ -386,7 +411,8 @@ const editAdminProduct = (product) => {
   form.elements.productId.value = product.id;
   form.elements.name.value = product.name;
   form.elements.category.value = product.category;
-  form.elements.price.value = product.price.replace(/[^\d.]/g, '');
+  const price = parseProductPrice(product.price);
+  form.elements.price.value = price === null ? '' : String(price);
   form.elements.seller_phone.value = product.seller_phone || '';
   form.elements.description.value = product.description;
   form.elements.image_file.value = '';
