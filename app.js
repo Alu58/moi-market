@@ -27,6 +27,7 @@ const supabaseClient = isSupabaseConfigured() && window.supabase
 let products = [];
 let currentAdmin = null;
 let productSearchQuery = '';
+let productLoadRequestId = 0;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -76,6 +77,7 @@ const renderProducts = (query = productSearchQuery) => {
   productSearchQuery = query;
   const search = productSearchQuery.trim().toLowerCase();
   const visibleProducts = products.filter((product) =>
+    product.quantity > 0 &&
     `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(search)
   );
 
@@ -103,23 +105,27 @@ const renderProducts = (query = productSearchQuery) => {
           <span class="product-category">${escapeHtml(product.category || 'Product')}</span>
           <h3>${escapeHtml(product.name)}</h3>
           <p>${escapeHtml(product.description || '')}</p>
-          <div class="product-footer"><strong>${escapeHtml(formatProductPrice(product.price))}</strong>${contactLink}</div>
+          <div class="product-footer"><strong>${escapeHtml(formatProductPrice(product.price))}</strong><span>Available: ${escapeHtml(product.quantity)}</span>${contactLink}</div>
         </div>
       </article>`;
   }).join('');
 };
 
-const loadProducts = async () => {
+const loadProducts = async (includeOutOfStock = false) => {
   if (!supabaseClient) {
     renderProducts();
     setCatalogueMessage('Product listings are not connected yet. The site owner must configure Supabase.');
     return;
   }
+  const requestId = ++productLoadRequestId;
   setCatalogueMessage('Loading products...');
-  const { data, error } = await supabaseClient
+  let productQuery = supabaseClient
     .from('products')
-    .select('id, name, category, price, description, image_url, seller_phone')
+    .select('id, name, category, price, quantity, description, image_url, seller_phone')
     .order('created_at', { ascending: false });
+  if (!includeOutOfStock) productQuery = productQuery.gt('quantity', 0);
+  const { data, error } = await productQuery;
+  if (requestId !== productLoadRequestId) return;
   if (error) {
     setCatalogueMessage(`Could not load products: ${error.message}`, true);
     return;
@@ -210,7 +216,11 @@ const renderAdminProducts = () => {
   }
   list.innerHTML = products.map((product) => `
     <article class="admin-product-row">
-      <div><strong>${escapeHtml(product.name)}</strong><span>${escapeHtml(product.category)} · ${escapeHtml(formatProductPrice(product.price))}</span></div>
+      <div>
+        <strong>${escapeHtml(product.name)}</strong>
+        <span>${escapeHtml(product.category)} · ${escapeHtml(formatProductPrice(product.price))}</span>
+        <span>${product.quantity === null ? 'Quantity not set' : product.quantity === 0 ? 'Out of stock' : `${escapeHtml(product.quantity)} available`}</span>
+      </div>
       <div class="admin-row-actions">
         <button type="button" class="text-button" data-action="edit" data-id="${escapeHtml(product.id)}">Edit</button>
         <button type="button" class="text-button danger-button" data-action="delete" data-id="${escapeHtml(product.id)}">Delete</button>
@@ -227,6 +237,7 @@ const updateAdminSession = async (session) => {
     workspace.hidden = true;
     resetProductEditor();
     document.getElementById('adminProductList').replaceChildren();
+    await loadProducts();
     return;
   }
 
@@ -261,6 +272,7 @@ const updateAdminSession = async (session) => {
   workspace.hidden = false;
   document.getElementById('adminIdentity').textContent = `Signed in as ${session.user.email}`;
   showAdminMessage('');
+  await loadProducts(true);
   renderAdminProducts();
 };
 
@@ -297,6 +309,11 @@ const saveAdminProduct = async (event) => {
     showAdminMessage('Enter a valid price of 0 or more, with up to 2 decimal places.', true);
     return;
   }
+  const quantity = Number(form.elements.quantity.value);
+  if (!Number.isSafeInteger(quantity) || quantity < 0) {
+    showAdminMessage('Enter a whole-number quantity of 0 or more.', true);
+    return;
+  }
   const imageFile = form.elements.image_file.files[0];
   const removeImage = form.elements.remove_image.checked;
   const saveButton = document.getElementById('saveProductButton');
@@ -327,6 +344,7 @@ const saveAdminProduct = async (event) => {
     name: form.elements.name.value.trim(),
     category: form.elements.category.value.trim(),
     price,
+    quantity,
     seller_phone: form.elements.seller_phone.value.trim() || null,
     image_url: uploadedImageUrl || (removeImage ? null : previousProduct?.image_url || null),
     description: form.elements.description.value.trim()
@@ -363,7 +381,7 @@ const saveAdminProduct = async (event) => {
 
   resetProductEditor();
   saveButton.disabled = false;
-  await loadProducts();
+  await loadProducts(true);
   renderAdminProducts();
   const replacedImage = previousProduct?.image_url && (uploadedImageUrl || removeImage)
     ? previousProduct.image_url
@@ -394,7 +412,7 @@ const handleAdminProductAction = async (event) => {
       showAdminMessage(`Could not delete product: ${error.message}`, true);
       return;
     }
-    await loadProducts();
+    await loadProducts(true);
     renderAdminProducts();
     const cleanupError = await removeProductImage(product.image_url);
     showAdminMessage(
@@ -413,6 +431,7 @@ const editAdminProduct = (product) => {
   form.elements.category.value = product.category;
   const price = parseProductPrice(product.price);
   form.elements.price.value = price === null ? '' : String(price);
+  form.elements.quantity.value = product.quantity === null ? '' : String(product.quantity);
   form.elements.seller_phone.value = product.seller_phone || '';
   form.elements.description.value = product.description;
   form.elements.image_file.value = '';
