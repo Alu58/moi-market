@@ -7,7 +7,7 @@ create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(btrim(name)) between 1 and 120),
   category text not null check (char_length(btrim(category)) between 1 and 80),
-  price text not null check (char_length(btrim(price)) between 1 and 80),
+  price numeric not null check (price >= 0),
   description text not null check (char_length(btrim(description)) between 1 and 2000),
   image_url text check (image_url is null or char_length(image_url) <= 2048),
   seller_phone text check (seller_phone is null or char_length(seller_phone) <= 40),

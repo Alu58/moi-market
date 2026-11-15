@@ -10,7 +10,7 @@ Seller submissions open WhatsApp and do not create listings automatically; the s
 
 ## Configure Supabase
 
-1. In the Supabase SQL Editor, run (or re-run) [`supabase/schema.sql`](supabase/schema.sql). It creates the products/admin tables and a `product-images` public-read bucket limited to 5 MB JPG, PNG, WebP, or GIF files. RLS allows only `public.admin_users` members to upload, replace, and delete bucket objects; product images are public, so do not upload private material.
+1. In the Supabase SQL Editor, run (or re-run) [`supabase/schema.sql`](supabase/schema.sql). New `products` tables store price as a nonnegative numeric value. Re-running the script does not change the price column type of an existing table, so existing numeric-price tables need no migration. It also creates a `product-images` public-read bucket limited to 5 MB JPG, PNG, WebP, or GIF files. RLS allows only `public.admin_users` members to upload, replace, and delete bucket objects; product images are public, so do not upload private material.
 2. In Supabase Authentication settings, disable public sign-ups. Do not create a public admin registration form.
 3. In the Supabase dashboard, invite the intended admin email under Authentication → Users (or use its existing user account). The account must exist before it can be authorized.
 4. In the SQL Editor, authorize the intended existing Auth account by email. Replace `ADMIN_EMAIL` with the intended address; verify the account before running this statement:
