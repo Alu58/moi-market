@@ -25,8 +25,11 @@ const supabaseClient = isSupabaseConfigured() && window.supabase
   : null;
 
 let products = [];
+let categories = [];
 let currentAdmin = null;
 let productSearchQuery = '';
+let selectedCategory = '';
+let categoryLoadError = null;
 let productLoadRequestId = 0;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -63,6 +66,42 @@ const formatProductPrice = (value) => {
     : `KES ${amount.toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
 };
 
+const renderCategoryOptions = () => {
+  const populate = (select, firstOption) => {
+    if (!select) return;
+    const selected = select.value;
+    select.innerHTML = `<option value="">${firstOption}</option>${categories.map((category) =>
+      `<option value="${escapeHtml(category.name)}">${escapeHtml(category.name)}</option>`
+    ).join('')}`;
+    if (categories.some((category) => category.name === selected)) select.value = selected;
+  };
+  populate(document.getElementById('categoryFilter'), 'All categories');
+  populate(document.getElementById('productAdminForm')?.elements.category, 'Choose a category');
+  populate(document.getElementById('whatsappForm')?.elements.category, 'Choose a category');
+};
+
+const loadCategories = async () => {
+  if (!supabaseClient) {
+    categoryLoadError = 'Supabase is not configured.';
+    renderCategoryOptions();
+    return false;
+  }
+  const { data, error } = await supabaseClient
+    .from('categories')
+    .select('name')
+    .order('name', { ascending: true });
+  if (error) {
+    categoryLoadError = error.message;
+    categories = [];
+  } else {
+    categoryLoadError = null;
+    categories = data;
+  }
+  renderCategoryOptions();
+  if (currentAdmin && error) showAdminMessage(`Could not load categories: ${error.message}`, true);
+  return !error;
+};
+
 const setCatalogueMessage = (message, isError = false) => {
   const status = document.getElementById('catalogueMessage');
   if (!status) return;
@@ -78,14 +117,16 @@ const renderProducts = (query = productSearchQuery) => {
   const search = productSearchQuery.trim().toLowerCase();
   const visibleProducts = products.filter((product) =>
     product.quantity > 0 &&
+    (!selectedCategory || product.category === selectedCategory) &&
     `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(search)
   );
 
   if (!visibleProducts.length) {
+    const hasFilter = Boolean(search || selectedCategory);
     grid.innerHTML = `
       <div class="empty-products">
         <span aria-hidden="true">✦</span>
-        <h3>${search ? 'No matching products' : 'New products coming soon'}</h3>
+        <h3>${hasFilter ? 'No matching products' : 'New products coming soon'}</h3>
         <p>Products appear here after the admin reviews and publishes them.</p>
         <a href="#advertise">Promote your product</a>
       </div>`;
@@ -132,7 +173,10 @@ const loadProducts = async (includeOutOfStock = false) => {
   }
   products = data;
   renderProducts();
-  setCatalogueMessage('');
+  setCatalogueMessage(
+    categoryLoadError ? `Could not load categories: ${categoryLoadError}` : '',
+    Boolean(categoryLoadError)
+  );
 };
 
 const showAdminMessage = (message, isError = false) => {
@@ -152,6 +196,15 @@ const resetProductEditor = () => {
   document.getElementById('cancelProductEdit').hidden = true;
   document.getElementById('removeImageOption').hidden = true;
   previewProductImage(null);
+};
+
+const resetCategoryEditor = () => {
+  const form = document.getElementById('categoryAdminForm');
+  if (!form) return;
+  form.reset();
+  form.elements.categoryId.value = '';
+  document.getElementById('saveCategoryButton').textContent = 'Add category';
+  document.getElementById('cancelCategoryEdit').hidden = true;
 };
 
 const getProductImagePath = (imageUrl) => {
@@ -228,6 +281,23 @@ const renderAdminProducts = () => {
     </article>`).join('');
 };
 
+const renderAdminCategories = () => {
+  const list = document.getElementById('adminCategoryList');
+  if (!list) return;
+  if (!categories.length) {
+    list.innerHTML = '<p class="fine-print admin-list-empty">No categories have been created yet.</p>';
+    return;
+  }
+  list.innerHTML = categories.map((category) => `
+    <article class="admin-product-row">
+      <div><strong>${escapeHtml(category.name)}</strong></div>
+      <div class="admin-row-actions">
+        <button type="button" class="text-button" data-action="edit-category" data-name="${escapeHtml(category.name)}">Rename</button>
+        <button type="button" class="text-button danger-button" data-action="delete-category" data-name="${escapeHtml(category.name)}">Delete</button>
+      </div>
+    </article>`).join('');
+};
+
 const updateAdminSession = async (session) => {
   const loginForm = document.getElementById('adminLoginForm');
   const workspace = document.getElementById('adminWorkspace');
@@ -236,7 +306,9 @@ const updateAdminSession = async (session) => {
     loginForm.hidden = false;
     workspace.hidden = true;
     resetProductEditor();
+    resetCategoryEditor();
     document.getElementById('adminProductList').replaceChildren();
+    document.getElementById('adminCategoryList').replaceChildren();
     await loadProducts();
     return;
   }
@@ -272,8 +344,10 @@ const updateAdminSession = async (session) => {
   workspace.hidden = false;
   document.getElementById('adminIdentity').textContent = `Signed in as ${session.user.email}`;
   showAdminMessage('');
+  await loadCategories();
   await loadProducts(true);
   renderAdminProducts();
+  renderAdminCategories();
 };
 
 const signInAdmin = async (event) => {
@@ -395,6 +469,97 @@ const saveAdminProduct = async (event) => {
   );
 };
 
+const saveAdminCategory = async (event) => {
+  event.preventDefault();
+  if (!supabaseClient || !currentAdmin) {
+    showAdminMessage('Sign in with an authorized admin account first.', true);
+    return;
+  }
+  const form = event.currentTarget;
+  const previousName = form.elements.categoryId.value;
+  const name = form.elements.name.value.trim();
+  if (!name || name.length > 80) {
+    showAdminMessage('Enter a category name between 1 and 80 characters.', true);
+    return;
+  }
+  const button = document.getElementById('saveCategoryButton');
+  button.disabled = true;
+  const result = previousName
+    ? await supabaseClient.from('categories').update({ name }).eq('name', previousName).select('name').maybeSingle()
+    : await supabaseClient.from('categories').insert({ name }).select('name').single();
+  button.disabled = false;
+  if (result.error) {
+    showAdminMessage(
+      result.error.code === '23505'
+        ? 'A category with this name already exists, ignoring capitalization.'
+        : `Could not save category: ${result.error.message}`,
+      true
+    );
+    return;
+  }
+  if (!result.data) {
+    showAdminMessage('Category was not saved. It may have been removed or you may no longer have permission.', true);
+    return;
+  }
+  if (selectedCategory === previousName) selectedCategory = name;
+  const productForm = document.getElementById('productAdminForm');
+  const keepProductCategory = productForm.elements.productId.value &&
+    productForm.elements.category.value === previousName;
+  resetCategoryEditor();
+  const categoriesLoaded = await loadCategories();
+  if (keepProductCategory) productForm.elements.category.value = name;
+  document.getElementById('categoryFilter').value = selectedCategory;
+  await loadProducts(true);
+  renderAdminProducts();
+  renderAdminCategories();
+  showAdminMessage(
+    categoriesLoaded ? 'Category saved.' : `Category saved, but categories could not be refreshed: ${categoryLoadError}`,
+    !categoriesLoaded
+  );
+};
+
+const handleAdminCategoryAction = async (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button || !supabaseClient || !currentAdmin) return;
+  const name = button.dataset.name;
+  const category = categories.find((item) => item.name === name);
+  if (!category) return;
+
+  if (button.dataset.action === 'edit-category') {
+    const form = document.getElementById('categoryAdminForm');
+    form.elements.categoryId.value = category.name;
+    form.elements.name.value = category.name;
+    document.getElementById('saveCategoryButton').textContent = 'Save category';
+    document.getElementById('cancelCategoryEdit').hidden = false;
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.elements.name.focus();
+    return;
+  }
+
+  if (button.dataset.action === 'delete-category' && window.confirm(`Delete "${category.name}"?`)) {
+    const { error } = await supabaseClient.from('categories').delete().eq('name', category.name);
+    if (error) {
+      showAdminMessage(
+        error.code === '23503'
+          ? 'Cannot delete this category while products use it. Reassign those products first.'
+          : `Could not delete category: ${error.message}`,
+        true
+      );
+      return;
+    }
+    if (selectedCategory === category.name) selectedCategory = '';
+    const categoriesLoaded = await loadCategories();
+    document.getElementById('categoryFilter').value = selectedCategory;
+    await loadProducts(true);
+    renderAdminProducts();
+    renderAdminCategories();
+    showAdminMessage(
+      categoriesLoaded ? 'Category deleted.' : `Category deleted, but categories could not be refreshed: ${categoryLoadError}`,
+      !categoriesLoaded
+    );
+  }
+};
+
 const handleAdminProductAction = async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button || !supabaseClient || !currentAdmin) return;
@@ -473,7 +638,7 @@ const sendProductToWhatsApp = (event) => {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
-  void loadProducts();
+  void loadCategories().then(() => loadProducts());
 
   const form = document.getElementById('whatsappForm');
   if (form) form.addEventListener('submit', sendProductToWhatsApp);
@@ -484,7 +649,10 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     document.getElementById('productAdminForm').addEventListener('submit', saveAdminProduct);
     document.getElementById('adminProductList').addEventListener('click', handleAdminProductAction);
+    document.getElementById('categoryAdminForm').addEventListener('submit', saveAdminCategory);
+    document.getElementById('adminCategoryList').addEventListener('click', handleAdminCategoryAction);
     document.getElementById('cancelProductEdit').addEventListener('click', resetProductEditor);
+    document.getElementById('cancelCategoryEdit').addEventListener('click', resetCategoryEditor);
     document.getElementById('productAdminForm').elements.image_file.addEventListener('change', (event) => {
       const file = event.currentTarget.files[0];
       const form = document.getElementById('productAdminForm');
@@ -514,4 +682,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const search = document.getElementById('searchInput');
   if (search) search.addEventListener('input', (event) => renderProducts(event.target.value));
+  const categoryFilter = document.getElementById('categoryFilter');
+  if (categoryFilter) categoryFilter.addEventListener('change', (event) => {
+    selectedCategory = event.target.value;
+    renderProducts();
+  });
+  const clearCategoryFilter = document.getElementById('clearCategoryFilter');
+  if (clearCategoryFilter) clearCategoryFilter.addEventListener('click', () => {
+    selectedCategory = '';
+    categoryFilter.value = '';
+    renderProducts();
+  });
 });
